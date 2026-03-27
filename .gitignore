@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Reports output
+reports/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cache
+.coeus_cache/
+
+# Notes
+gods.txt
