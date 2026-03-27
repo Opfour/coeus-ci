@@ -2,7 +2,7 @@
 
 *Competitive Intelligence that sees all.*
 
-Named after **Coeus** (SEE-us), the Greek Titan of the inquisitive mind — whose name literally means "querying." CI stands for **Competitive Intelligence**.
+Named after **Coeus** (SEE-us), the Greek Titan of the inquisitive mind with 100 eyes — whose name literally means "querying." CI stands for **Competitive Intelligence**.
 
 A business intelligence and OSINT tool that builds company profiles from public data sources. Give it a company name or domain — get back a scored report covering stability, growth, tech maturity, employee sentiment, and financial health.
 
