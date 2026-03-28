@@ -20,10 +20,22 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "aioresponses"]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "aioresponses"]
 
 [project.scripts]
 coeus = "coeus.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["coeus*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["coeus"]
+omit = ["coeus/__main__.py"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
