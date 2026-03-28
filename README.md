@@ -1,6 +1,10 @@
-# Coeus CI
+<p align="center">
+  <img src="coeusci.logo.png" alt="Coeus CI Logo" width="400">
+</p>
 
-*Competitive Intelligence that sees all.*
+<h1 align="center">Coeus CI</h1>
+
+<p align="center"><em>Competitive Intelligence that sees all.</em></p>
 
 Named after **Coeus** (SEE-us), the 100 eyed Greek Titan of the inquisitive mind — whose name literally means "querying." CI stands for **Competitive Intelligence**.
 
