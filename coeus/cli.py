@@ -13,6 +13,12 @@ console = Console()
 # Matches something that looks like a domain: word.tld or word.word.tld
 _DOMAIN_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z]{2,})+$")
 
+# Matches a stock ticker: 1-5 uppercase letters (optionally with user typing lowercase)
+_TICKER_RE = re.compile(r"^[A-Za-z]{1,5}$")
+
+# SEC EDGAR ticker → company mapping (free, no API key)
+_SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
+
 
 @click.command()
 @click.argument("targets", nargs=-1)
@@ -63,12 +69,19 @@ def _is_domain(text: str) -> bool:
     return bool(_DOMAIN_RE.match(text.strip()))
 
 
+def _looks_like_ticker(word: str) -> bool:
+    """Check if a word looks like a stock ticker (1-5 letters, all alpha)."""
+    return bool(_TICKER_RE.match(word)) and word.upper() == word
+
+
 def _parse_targets(raw_targets: tuple[str, ...]) -> list[str]:
     """Parse CLI arguments into a list of targets.
 
     Handles:
       - coeus apple.com                    → ["apple.com"]
       - coeus apple.com microsoft.com      → ["apple.com", "microsoft.com"]
+      - coeus AAPL                         → ["AAPL"]  (stock ticker)
+      - coeus AAPL MSFT                    → ["AAPL", "MSFT"]  (ticker comparison)
       - coeus "apple inc"                  → ["apple inc"]  (quoted = company name)
       - coeus apple inc                    → ["apple inc"]  (non-domain words joined)
       - coeus apple.com "red cross"        → ["apple.com", "red cross"]
@@ -79,6 +92,12 @@ def _parse_targets(raw_targets: tuple[str, ...]) -> list[str]:
     for arg in raw_targets:
         if _is_domain(arg):
             # Flush any pending company name words
+            if pending_words:
+                targets.append(" ".join(pending_words))
+                pending_words = []
+            targets.append(arg)
+        elif _looks_like_ticker(arg):
+            # Uppercase short words are treated as tickers, not company name parts
             if pending_words:
                 targets.append(" ".join(pending_words))
                 pending_words = []
@@ -98,6 +117,28 @@ _COMPANY_SUFFIXES = {
     "llc", "llc.", "ltd", "ltd.", "limited", "co", "co.",
     "company", "group", "holdings", "enterprises", "international",
 }
+
+
+async def _resolve_ticker(ticker: str) -> tuple[str, str] | None:
+    """Look up a stock ticker via SEC EDGAR. Returns (company_name, ticker) or None."""
+    import aiohttp
+
+    try:
+        headers = {"User-Agent": "CoeusCI/0.1 research@example.com"}
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                _SEC_TICKERS_URL,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                data = await resp.json(content_type=None)
+                upper = ticker.upper()
+                for entry in data.values():
+                    if entry["ticker"] == upper:
+                        return (entry["title"], entry["ticker"])
+    except Exception:
+        pass
+    return None
 
 
 async def _resolve_company_name(name: str) -> str | None:
@@ -148,21 +189,36 @@ async def _run(targets: list[str], json_output: bool, html_output: bool,
     module_filter = [m.strip() for m in modules.split(",")] if modules else None
     orchestrator = Orchestrator(timeout=timeout)
 
-    # Resolve company names to domains
+    # Resolve targets to domains (accepts domains, tickers, or company names)
     resolved_targets = []
     for target in targets:
         if _is_domain(target):
             resolved_targets.append(target)
+            continue
+
+        # Try stock ticker first (single short word like AAPL, MSFT)
+        if _TICKER_RE.match(target):
+            console.print(f"[dim]Looking up ticker:[/dim] {target.upper()}")
+            result = await _resolve_ticker(target)
+            if result:
+                company_name, ticker = result
+                console.print(f"[dim]  → {ticker}:[/dim] {company_name}")
+                domain = await _resolve_company_name(company_name)
+                if domain:
+                    console.print(f"[dim]  → domain:[/dim] {domain}")
+                    resolved_targets.append(domain)
+                    continue
+                # Ticker found but no domain — fall through to name-based resolution
+
+        # Try as company name
+        console.print(f"[dim]Resolving company name:[/dim] {target}")
+        domain = await _resolve_company_name(target)
+        if domain:
+            console.print(f"[dim]  → found:[/dim] {domain}")
+            resolved_targets.append(domain)
         else:
-            console.print(f"[dim]Resolving company name:[/dim] {target}")
-            domain = await _resolve_company_name(target)
-            if domain:
-                console.print(f"[dim]  → found:[/dim] {domain}")
-                resolved_targets.append(domain)
-            else:
-                console.print(f"[yellow]Could not resolve \"{target}\" to a domain.[/yellow]")
-                console.print(f"[dim]  Tip: try the domain directly, e.g. coeus apple.com[/dim]")
-                continue
+            console.print(f"[yellow]Could not resolve \"{target}\" to a domain.[/yellow]")
+            console.print(f"[dim]  Tip: try the domain directly, e.g. coeus apple.com[/dim]")
 
     if not resolved_targets:
         console.print("[red]No valid targets to scan.[/red]")
