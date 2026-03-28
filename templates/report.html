@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coeus CI — {{ company_name or target }}</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; line-height: 1.6; padding: 2rem; max-width: 900px; margin: 0 auto; }
+h1 { color: #58a6ff; font-size: 2rem; margin-bottom: 0.3rem; }
+h2 { color: #58a6ff; font-size: 1.3rem; margin: 2rem 0 1rem; border-bottom: 1px solid #21262d; padding-bottom: 0.5rem; }
+h3 { color: #8b949e; font-size: 1rem; margin: 1.2rem 0 0.5rem; }
+.subtitle { color: #8b949e; font-size: 0.9rem; margin-bottom: 1.5rem; }
+.meta { display: flex; gap: 2rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.meta-item { background: #161b22; padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid #21262d; }
+.meta-label { color: #8b949e; font-size: 0.75rem; text-transform: uppercase; }
+.meta-value { color: #c9d1d9; font-weight: 600; }
+
+/* Scorecard */
+.scorecard { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+.score-card { background: #161b22; border: 1px solid #21262d; border-radius: 8px; padding: 1rem 1.2rem; }
+.score-label { color: #8b949e; font-size: 0.85rem; text-transform: capitalize; }
+.score-value { font-size: 1.8rem; font-weight: 700; margin: 0.3rem 0; }
+.score-bar { background: #21262d; border-radius: 4px; height: 8px; overflow: hidden; }
+.score-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+.score-green { background: #3fb950; }
+.score-yellow { background: #d29922; }
+.score-red { background: #f85149; }
+
+/* Findings */
+.finding { background: #161b22; border-left: 3px solid #8b949e; padding: 0.7rem 1rem; margin: 0.5rem 0; border-radius: 0 6px 6px 0; }
+.finding.critical { border-left-color: #f85149; }
+.finding.high { border-left-color: #f85149; }
+.finding.medium { border-left-color: #d29922; }
+.finding.low { border-left-color: #58a6ff; }
+.finding.info { border-left-color: #8b949e; }
+.finding-title { font-weight: 600; }
+.finding-detail { color: #8b949e; font-size: 0.85rem; }
+.finding-badge { display: inline-block; font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 3px; text-transform: uppercase; margin-right: 0.5rem; }
+.badge-critical { background: #f8514933; color: #f85149; }
+.badge-high { background: #f8514933; color: #f85149; }
+.badge-medium { background: #d2992233; color: #d29922; }
+.badge-low { background: #58a6ff33; color: #58a6ff; }
+.badge-info { background: #8b949e33; color: #8b949e; }
+
+/* Module details */
+.module-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.module-card { background: #161b22; border: 1px solid #21262d; border-radius: 8px; padding: 1rem; }
+.module-card h3 { margin-top: 0; color: #58a6ff; }
+.module-status { font-size: 0.8rem; margin-bottom: 0.5rem; }
+.status-ok { color: #3fb950; }
+.status-fail { color: #f85149; }
+.data-row { display: flex; justify-content: space-between; padding: 0.3rem 0; border-bottom: 1px solid #21262d; font-size: 0.85rem; }
+.data-row:last-child { border-bottom: none; }
+.data-key { color: #8b949e; }
+.data-val { color: #c9d1d9; text-align: right; max-width: 60%; word-break: break-all; }
+
+/* Footer */
+.footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #21262d; color: #484f58; font-size: 0.8rem; text-align: center; }
+
+@media (max-width: 600px) {
+    .scorecard { grid-template-columns: 1fr; }
+    .module-grid { grid-template-columns: 1fr; }
+    .meta { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<h1>{{ company_name or target }}</h1>
+<p class="subtitle">Competitive Intelligence Report — Generated {{ generated_at }}</p>
+
+<div class="meta">
+    <div class="meta-item">
+        <div class="meta-label">Target</div>
+        <div class="meta-value">{{ target }}</div>
+    </div>
+    <div class="meta-item">
+        <div class="meta-label">Modules</div>
+        <div class="meta-value">{{ modules_ok }}/{{ modules_total }} succeeded</div>
+    </div>
+    {% if domain_age %}
+    <div class="meta-item">
+        <div class="meta-label">Domain Age</div>
+        <div class="meta-value">{{ domain_age }} years</div>
+    </div>
+    {% endif %}
+</div>
+
+<h2>Scorecard</h2>
+<div class="scorecard">
+{% for dim, score in scores.items() %}
+    <div class="score-card">
+        <div class="score-label">{{ dim | replace("_", " ") }}</div>
+        <div class="score-value" style="color: {{ score_color(score) }}">{{ score }}/10</div>
+        <div class="score-bar">
+            <div class="score-fill {{ score_class(score) }}" style="width: {{ score * 10 }}%"></div>
+        </div>
+    </div>
+{% endfor %}
+</div>
+
+{% if findings %}
+<h2>Findings ({{ findings | length }})</h2>
+{% for f in findings %}
+    <div class="finding {{ f.severity.value }}">
+        <span class="finding-badge badge-{{ f.severity.value }}">{{ f.severity.value }}</span>
+        <span class="finding-title">{{ f.title }}</span>
+        {% if f.detail %}
+        <div class="finding-detail">{{ f.detail }}</div>
+        {% endif %}
+    </div>
+{% endfor %}
+{% endif %}
+
+<h2>Module Details</h2>
+<div class="module-grid">
+{% for name, result in module_results.items() %}
+    <div class="module-card">
+        <h3>{{ name }}</h3>
+        <div class="module-status">
+            {% if result.success %}
+                <span class="status-ok">OK</span> ({{ "%.1f" | format(result.execution_time) }}s)
+            {% else %}
+                <span class="status-fail">FAILED:</span> {{ result.error }}
+            {% endif %}
+        </div>
+        {% if result.success and result.data %}
+        {% for key, val in result.data.items() %}
+            {% if val is not none and val != '' and val != [] and val != {} and key != 'match_score' %}
+            <div class="data-row">
+                <span class="data-key">{{ key | replace("_", " ") }}</span>
+                <span class="data-val">
+                    {% if val is number and val > 100000 %}
+                        ${{ "{:,.0f}".format(val) }}
+                    {% elif val is iterable and val is not string and val is not mapping %}
+                        {{ val | length }} items
+                    {% else %}
+                        {{ val }}
+                    {% endif %}
+                </span>
+            </div>
+            {% endif %}
+        {% endfor %}
+        {% endif %}
+    </div>
+{% endfor %}
+</div>
+
+<div class="footer">
+    Generated by <strong>Coeus CI</strong> — Competitive Intelligence from public data sources
+</div>
+
+</body>
+</html>

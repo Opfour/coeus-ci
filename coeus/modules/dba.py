@@ -4,6 +4,7 @@ import re
 import aiohttp
 from coeus.modules.base import BaseModule
 from coeus.models import Finding, ScoreContribution, ScoreDimension, Severity
+from coeus.matching import best_match, name_similarity
 
 OPENCORP_SEARCH = "https://api.opencorporates.com/v0.4/companies/search"
 
@@ -44,8 +45,26 @@ class DbaModule(BaseModule):
                                      .get("companies", []))
 
                         if companies:
-                            best = companies[0].get("company", {})
+                            # Fuzzy match against results
+                            company_dicts = [c.get("company", {})
+                                             for c in companies]
+                            best = best_match(company_name, company_dicts,
+                                              name_key="name", threshold=0.3)
+                            if not best:
+                                # Fall back to first result if query is
+                                # derived from domain (low confidence anyway)
+                                best = company_dicts[0] if company_dicts else {}
+
+                            if not best:
+                                return self._ok(data)
+
                             data["found"] = True
+                            data["match_score"] = round(
+                                name_similarity(
+                                    company_name,
+                                    best.get("name", ""),
+                                ), 2
+                            )
                             data["company_name_filed"] = best.get("name")
                             data["business_type"] = best.get("company_type")
                             data["jurisdiction"] = best.get(

@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coeus CI — Dashboard</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; }
+
+/* Header */
+header { background: #161b22; border-bottom: 1px solid #21262d; padding: 1rem 2rem; display: flex; align-items: center; gap: 1.5rem; }
+.logo { color: #58a6ff; font-size: 1.4rem; font-weight: 700; white-space: nowrap; }
+.logo span { color: #8b949e; font-weight: 400; }
+.search-bar { flex: 1; max-width: 600px; display: flex; gap: 0.5rem; }
+.search-bar input { flex: 1; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.95rem; outline: none; }
+.search-bar input:focus { border-color: #58a6ff; }
+.search-bar button { background: #238636; color: #fff; border: none; padding: 0.5rem 1.2rem; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.95rem; }
+.search-bar button:hover { background: #2ea043; }
+.search-bar button:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+
+/* Main */
+main { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+
+/* Landing */
+.landing { text-align: center; margin-top: 15vh; }
+.landing h2 { color: #58a6ff; font-size: 2rem; margin-bottom: 0.5rem; }
+.landing p { color: #8b949e; font-size: 1.1rem; margin-bottom: 2rem; }
+.landing .examples { color: #484f58; font-size: 0.9rem; }
+.landing .examples code { background: #161b22; padding: 0.2rem 0.5rem; border-radius: 4px; color: #8b949e; cursor: pointer; }
+.landing .examples code:hover { color: #58a6ff; }
+
+/* Progress */
+.progress { display: none; margin: 2rem 0; }
+.progress.active { display: block; }
+.progress-title { color: #58a6ff; font-size: 1.1rem; margin-bottom: 1rem; }
+.module-progress { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.5rem; }
+.mod-chip { background: #161b22; border: 1px solid #21262d; border-radius: 6px; padding: 0.5rem 0.8rem; font-size: 0.8rem; text-align: center; }
+.mod-chip.pending { color: #484f58; }
+.mod-chip.running { color: #d29922; border-color: #d29922; }
+.mod-chip.ok { color: #3fb950; border-color: #3fb950; }
+.mod-chip.fail { color: #f85149; border-color: #f85149; }
+
+/* Results */
+.results { display: none; }
+.results.active { display: block; }
+
+.company-header { margin-bottom: 1.5rem; }
+.company-header h1 { color: #58a6ff; font-size: 1.8rem; }
+.company-header .target { color: #8b949e; }
+
+.scorecard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1.5rem 0; }
+.score-card { background: #161b22; border: 1px solid #21262d; border-radius: 8px; padding: 1rem; }
+.score-label { color: #8b949e; font-size: 0.8rem; text-transform: capitalize; }
+.score-value { font-size: 2rem; font-weight: 700; }
+.score-bar-bg { background: #21262d; border-radius: 4px; height: 6px; margin-top: 0.5rem; overflow: hidden; }
+.score-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+
+.findings-section { margin: 2rem 0; }
+.findings-section h2 { color: #c9d1d9; font-size: 1.2rem; margin-bottom: 1rem; border-bottom: 1px solid #21262d; padding-bottom: 0.5rem; }
+.finding { background: #161b22; border-left: 3px solid #8b949e; padding: 0.6rem 1rem; margin: 0.4rem 0; border-radius: 0 6px 6px 0; }
+.finding.critical, .finding.high { border-left-color: #f85149; }
+.finding.medium { border-left-color: #d29922; }
+.finding.low { border-left-color: #58a6ff; }
+.badge { display: inline-block; font-size: 0.65rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 3px; text-transform: uppercase; margin-right: 0.4rem; }
+.badge-critical, .badge-high { background: #f8514933; color: #f85149; }
+.badge-medium { background: #d2992233; color: #d29922; }
+.badge-low { background: #58a6ff33; color: #58a6ff; }
+.badge-info { background: #8b949e33; color: #8b949e; }
+.finding-title { font-weight: 600; font-size: 0.9rem; }
+.finding-detail { color: #8b949e; font-size: 0.8rem; margin-top: 0.2rem; }
+
+.intel-section { margin: 2rem 0; }
+.intel-section h2 { color: #c9d1d9; font-size: 1.2rem; margin-bottom: 1rem; border-bottom: 1px solid #21262d; padding-bottom: 0.5rem; }
+.intel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.intel-card { background: #161b22; border: 1px solid #21262d; border-radius: 8px; padding: 1rem; }
+.intel-card h3 { color: #58a6ff; font-size: 0.95rem; margin-bottom: 0.5rem; }
+.intel-row { display: flex; justify-content: space-between; padding: 0.25rem 0; font-size: 0.85rem; border-bottom: 1px solid #21262d; }
+.intel-row:last-child { border-bottom: none; }
+.intel-key { color: #8b949e; }
+.intel-val { color: #c9d1d9; }
+
+.actions { margin: 2rem 0; display: flex; gap: 1rem; }
+.actions button { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+.actions button:hover { border-color: #58a6ff; color: #58a6ff; }
+
+@media (max-width: 700px) {
+    .scorecard { grid-template-columns: 1fr 1fr; }
+    .intel-grid { grid-template-columns: 1fr; }
+    header { flex-direction: column; }
+    .search-bar { max-width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<header>
+    <div class="logo">Coeus <span>CI</span></div>
+    <div class="search-bar">
+        <input type="text" id="targetInput" placeholder="Enter a domain (e.g., apple.com)" autofocus>
+        <button id="scanBtn" onclick="startScan()">Scan</button>
+    </div>
+</header>
+
+<main>
+    <div class="landing" id="landing">
+        <h2>Competitive Intelligence</h2>
+        <p>Enter a domain to generate a comprehensive company intelligence report.</p>
+        <div class="examples">
+            Try: <code onclick="quickScan('apple.com')">apple.com</code>
+            <code onclick="quickScan('microsoft.com')">microsoft.com</code>
+            <code onclick="quickScan('redcross.org')">redcross.org</code>
+        </div>
+    </div>
+
+    <div class="progress" id="progress">
+        <div class="progress-title" id="progressTitle">Scanning...</div>
+        <div class="module-progress" id="moduleProgress"></div>
+    </div>
+
+    <div class="results" id="results"></div>
+</main>
+
+<script>
+const MODULES = ['whois', 'ssl', 'dns', 'headers', 'tech', 'edgar', 'nonprofit', 'dba'];
+
+function quickScan(domain) {
+    document.getElementById('targetInput').value = domain;
+    startScan();
+}
+
+document.getElementById('targetInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') startScan();
+});
+
+async function startScan() {
+    const target = document.getElementById('targetInput').value.trim();
+    if (!target) return;
+
+    const btn = document.getElementById('scanBtn');
+    btn.disabled = true;
+    btn.textContent = 'Scanning...';
+
+    document.getElementById('landing').style.display = 'none';
+    document.getElementById('results').className = 'results';
+
+    // Show progress
+    const progress = document.getElementById('progress');
+    progress.className = 'progress active';
+    document.getElementById('progressTitle').textContent = `Scanning ${target}...`;
+
+    const mp = document.getElementById('moduleProgress');
+    mp.innerHTML = MODULES.map(m =>
+        `<div class="mod-chip running" id="mod-${m}">${m}</div>`
+    ).join('');
+
+    try {
+        const resp = await fetch('/api/scan', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({target})
+        });
+        const report = await resp.json();
+
+        // Update module chips
+        for (const [name, result] of Object.entries(report.module_results || {})) {
+            const chip = document.getElementById(`mod-${name}`);
+            if (chip) {
+                chip.className = `mod-chip ${result.success ? 'ok' : 'fail'}`;
+                chip.textContent = `${name} ${result.success ? '✓' : '✗'}`;
+            }
+        }
+
+        setTimeout(() => {
+            progress.className = 'progress';
+            renderResults(report);
+        }, 500);
+
+    } catch (err) {
+        document.getElementById('results').innerHTML =
+            `<p style="color:#f85149">Error: ${err.message}</p>`;
+        document.getElementById('results').className = 'results active';
+        progress.className = 'progress';
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Scan';
+}
+
+function scoreColor(score) {
+    if (score >= 7) return '#3fb950';
+    if (score >= 4) return '#d29922';
+    return '#f85149';
+}
+
+function renderResults(r) {
+    const el = document.getElementById('results');
+
+    const name = r.company_name || r.target;
+    const modulesOk = Object.values(r.module_results).filter(m => m.success).length;
+    const modulesTotal = Object.keys(r.module_results).length;
+
+    let html = `
+        <div class="company-header">
+            <h1>${esc(name)}</h1>
+            <span class="target">${esc(r.target)} — ${modulesOk}/${modulesTotal} modules succeeded</span>
+        </div>
+
+        <div class="scorecard">
+            ${Object.entries(r.final_scores).map(([dim, score]) => `
+                <div class="score-card">
+                    <div class="score-label">${dim.replace(/_/g, ' ')}</div>
+                    <div class="score-value" style="color:${scoreColor(score)}">${score}/10</div>
+                    <div class="score-bar-bg">
+                        <div class="score-bar-fill" style="width:${score*10}%;background:${scoreColor(score)}"></div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+
+    // Findings
+    if (r.findings && r.findings.length) {
+        const sorted = [...r.findings].sort((a,b) => sevOrder(b.severity) - sevOrder(a.severity));
+        html += `<div class="findings-section"><h2>Findings (${sorted.length})</h2>`;
+        for (const f of sorted) {
+            html += `
+                <div class="finding ${f.severity}">
+                    <span class="badge badge-${f.severity}">${f.severity}</span>
+                    <span class="finding-title">${esc(f.title)}</span>
+                    ${f.detail ? `<div class="finding-detail">${esc(f.detail)}</div>` : ''}
+                </div>
+            `;
+        }
+        html += '</div>';
+    }
+
+    // Key intelligence cards
+    html += '<div class="intel-section"><h2>Module Intelligence</h2><div class="intel-grid">';
+    for (const [mname, result] of Object.entries(r.module_results)) {
+        if (!result.success || !result.data) continue;
+        const entries = Object.entries(result.data)
+            .filter(([k,v]) => v != null && v !== '' && !Array.isArray(v) && typeof v !== 'object' && k !== 'match_score');
+        if (!entries.length) continue;
+
+        html += `<div class="intel-card"><h3>${mname}</h3>`;
+        for (const [k, v] of entries) {
+            let display = v;
+            if (typeof v === 'number' && v > 100000) display = '$' + v.toLocaleString();
+            if (typeof v === 'boolean') display = v ? 'Yes' : 'No';
+            html += `<div class="intel-row"><span class="intel-key">${k.replace(/_/g, ' ')}</span><span class="intel-val">${esc(String(display))}</span></div>`;
+        }
+        html += '</div>';
+    }
+    html += '</div></div>';
+
+    // Actions
+    html += `
+        <div class="actions">
+            <button onclick="downloadJSON()">Export JSON</button>
+            <button onclick="saveHTML()">Save HTML Report</button>
+        </div>
+    `;
+
+    el.innerHTML = html;
+    el.className = 'results active';
+
+    // Store for export
+    window._lastReport = r;
+}
+
+function downloadJSON() {
+    if (!window._lastReport) return;
+    const blob = new Blob([JSON.stringify(window._lastReport, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${window._lastReport.target}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+async function saveHTML() {
+    if (!window._lastReport) return;
+    // Re-scan with HTML flag — just download the JSON and note to user
+    const blob = new Blob([JSON.stringify(window._lastReport, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${window._lastReport.target}-report.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    alert('JSON exported. Run: coeus ' + window._lastReport.target + ' --html for full HTML report.');
+}
+
+function sevOrder(s) {
+    return {info:0, low:1, medium:2, high:3, critical:4}[s] || 0;
+}
+
+function esc(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
+</script>
+
+</body>
+</html>

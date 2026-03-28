@@ -3,6 +3,7 @@
 import aiohttp
 from coeus.modules.base import BaseModule
 from coeus.models import Finding, ScoreContribution, ScoreDimension, Severity
+from coeus.matching import best_match, name_similarity
 
 PROPUBLICA_SEARCH = "https://projects.propublica.org/nonprofits/api/v2/search.json"
 PROPUBLICA_ORG = "https://projects.propublica.org/nonprofits/api/v2/organizations/{ein}.json"
@@ -50,8 +51,15 @@ class NonprofitModule(BaseModule):
                     if not orgs:
                         return self._ok(data)
 
-                    # Find best match (first result is usually most relevant)
-                    org = orgs[0]
+                    # Find best match using fuzzy name matching
+                    org = best_match(company_name, orgs, name_key="name",
+                                     threshold=0.3)
+                    if not org:
+                        return self._ok(data)
+
+                    data["match_score"] = round(
+                        name_similarity(company_name, org.get("name", "")), 2
+                    )
                     data["is_nonprofit"] = True
                     data["ein"] = org.get("ein")
                     data["name"] = org.get("name")

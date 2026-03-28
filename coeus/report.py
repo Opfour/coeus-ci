@@ -1,7 +1,10 @@
-"""Output formatters for terminal and JSON."""
+"""Output formatters for terminal, JSON, and HTML."""
 
+import os
+from pathlib import Path
 from rich.console import Console
 from rich.table import Table
+from jinja2 import Environment, FileSystemLoader
 from coeus.models import CompanyReport, Severity
 
 console = Console()
@@ -58,6 +61,60 @@ class TerminalReport:
     @staticmethod
     def print_json(report: CompanyReport):
         print(report.model_dump_json(indent=2))
+
+    @staticmethod
+    def save_html(report: CompanyReport, output_path: str | None = None) -> str:
+        """Render report as self-contained HTML file."""
+        template_dir = Path(__file__).parent.parent / "templates"
+        env = Environment(loader=FileSystemLoader(str(template_dir)))
+
+        def score_color(score):
+            if score >= 7:
+                return "#3fb950"
+            elif score >= 4:
+                return "#d29922"
+            return "#f85149"
+
+        def score_class(score):
+            if score >= 7:
+                return "score-green"
+            elif score >= 4:
+                return "score-yellow"
+            return "score-red"
+
+        env.globals["score_color"] = score_color
+        env.globals["score_class"] = score_class
+
+        template = env.get_template("report.html")
+
+        # Extract domain age from whois data
+        domain_age = None
+        whois_data = report.module_results.get("whois")
+        if whois_data and whois_data.success:
+            domain_age = whois_data.data.get("domain_age_years")
+
+        html = template.render(
+            target=report.target,
+            company_name=report.company_name,
+            generated_at=report.generated_at.strftime("%Y-%m-%d %H:%M"),
+            scores=report.final_scores,
+            findings=sorted(report.findings,
+                            key=lambda f: _sev_order(f.severity), reverse=True),
+            module_results=report.module_results,
+            modules_ok=sum(1 for r in report.module_results.values() if r.success),
+            modules_total=len(report.module_results),
+            domain_age=domain_age,
+        )
+
+        if not output_path:
+            os.makedirs("reports", exist_ok=True)
+            safe_name = report.target.replace("/", "_").replace(":", "_")
+            output_path = f"reports/{safe_name}.html"
+
+        with open(output_path, "w") as f:
+            f.write(html)
+
+        return output_path
 
 
 def _print_highlights(report: CompanyReport):
