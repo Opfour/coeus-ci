@@ -1,6 +1,7 @@
 """CLI entry point."""
 
 import asyncio
+import re
 import click
 from rich.console import Console
 from coeus import DEFAULT_WEB_PORT, DEFAULT_TIMEOUT
@@ -8,6 +9,9 @@ from coeus.core import Orchestrator
 from coeus.report import TerminalReport
 
 console = Console()
+
+# Matches something that looks like a domain: word.tld or word.word.tld
+_DOMAIN_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z]{2,})+$")
 
 
 @click.command()
@@ -27,9 +31,10 @@ def main(targets: tuple[str, ...], json_output: bool, html_output: bool,
     """Coeus CI - Competitive intelligence from public data.
 
     \b
-    TARGETS is one or more domain names:
-        coeus acme.com
-        coeus acme.com competitor.com    (comparison mode)
+    Accepts domains or company names:
+        coeus apple.com
+        coeus "apple inc"
+        coeus apple.com microsoft.com    (comparison mode)
         coeus --web                      (launch web dashboard)
     """
     if web:
@@ -47,18 +52,124 @@ def main(targets: tuple[str, ...], json_output: bool, html_output: bool,
         return
 
     if not targets:
-        raise click.UsageError("Provide at least one target domain, or use --web for the dashboard.")
+        raise click.UsageError("Provide at least one target domain or company name, or use --web for the dashboard.")
 
-    asyncio.run(_run(targets, json_output, html_output, modules, timeout))
+    parsed = _parse_targets(targets)
+    asyncio.run(_run(parsed, json_output, html_output, modules, timeout))
 
 
-async def _run(targets: tuple[str, ...], json_output: bool, html_output: bool,
+def _is_domain(text: str) -> bool:
+    """Check if text looks like a domain name."""
+    return bool(_DOMAIN_RE.match(text.strip()))
+
+
+def _parse_targets(raw_targets: tuple[str, ...]) -> list[str]:
+    """Parse CLI arguments into a list of targets.
+
+    Handles:
+      - coeus apple.com                    → ["apple.com"]
+      - coeus apple.com microsoft.com      → ["apple.com", "microsoft.com"]
+      - coeus "apple inc"                  → ["apple inc"]  (quoted = company name)
+      - coeus apple inc                    → ["apple inc"]  (non-domain words joined)
+      - coeus apple.com "red cross"        → ["apple.com", "red cross"]
+    """
+    targets = []
+    pending_words = []
+
+    for arg in raw_targets:
+        if _is_domain(arg):
+            # Flush any pending company name words
+            if pending_words:
+                targets.append(" ".join(pending_words))
+                pending_words = []
+            targets.append(arg)
+        else:
+            pending_words.append(arg)
+
+    # Flush remaining words as a company name
+    if pending_words:
+        targets.append(" ".join(pending_words))
+
+    return targets
+
+
+_COMPANY_SUFFIXES = {
+    "inc", "inc.", "incorporated", "corp", "corp.", "corporation",
+    "llc", "llc.", "ltd", "ltd.", "limited", "co", "co.",
+    "company", "group", "holdings", "enterprises", "international",
+}
+
+
+async def _resolve_company_name(name: str) -> str | None:
+    """Try to resolve a company name to a domain."""
+    import aiohttp
+
+    # Strip common corporate suffixes
+    words = name.lower().split()
+    core_words = [w for w in words if w.rstrip(".") not in _COMPANY_SUFFIXES]
+    if not core_words:
+        core_words = words  # fallback if everything was a suffix
+
+    # Build domain guesses: "Apple Inc" → apple.com, "Red Cross" → redcross.com
+    joined = "".join(re.sub(r"[^a-z0-9]", "", w) for w in core_words)
+    full = "".join(re.sub(r"[^a-z0-9]", "", w) for w in words)
+    # Also try first word only for single-brand companies
+    first = re.sub(r"[^a-z0-9]", "", core_words[0]) if core_words else joined
+
+    candidates = []
+    seen = set()
+    # Prioritize: full core name, then full with suffixes, then first word only
+    for base in [joined, full, first]:
+        if not base or base in seen:
+            continue
+        seen.add(base)
+        for tld in [".com", ".org", ".net"]:
+            candidates.append(f"{base}{tld}")
+
+    async with aiohttp.ClientSession() as session:
+        for domain in candidates:
+            try:
+                async with session.head(
+                    f"https://{domain}",
+                    timeout=aiohttp.ClientTimeout(total=5),
+                    allow_redirects=True,
+                ) as resp:
+                    # Accept any response — if the server responds, the domain exists.
+                    # Many legit sites return 403/405 on HEAD requests.
+                    if resp.status < 500:
+                        return domain
+            except Exception:
+                continue
+    return None
+
+
+async def _run(targets: list[str], json_output: bool, html_output: bool,
                modules: str | None, timeout: int):
     module_filter = [m.strip() for m in modules.split(",")] if modules else None
     orchestrator = Orchestrator(timeout=timeout)
 
-    reports = []
+    # Resolve company names to domains
+    resolved_targets = []
     for target in targets:
+        if _is_domain(target):
+            resolved_targets.append(target)
+        else:
+            console.print(f"[dim]Resolving company name:[/dim] {target}")
+            domain = await _resolve_company_name(target)
+            if domain:
+                console.print(f"[dim]  → found:[/dim] {domain}")
+                resolved_targets.append(domain)
+            else:
+                console.print(f"[yellow]Could not resolve \"{target}\" to a domain.[/yellow]")
+                console.print(f"[dim]  Tip: try the domain directly, e.g. coeus apple.com[/dim]")
+                continue
+
+    if not resolved_targets:
+        console.print("[red]No valid targets to scan.[/red]")
+        return
+
+    reports = []
+    for target in resolved_targets:
         report = await orchestrator.run(target, module_filter=module_filter)
         reports.append(report)
 
