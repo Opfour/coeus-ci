@@ -19,7 +19,7 @@ console = Console()
 @click.option("--timeout", "-t", default=30,
               help="Per-module timeout in seconds")
 @click.option("--web", is_flag=True, help="Launch web dashboard")
-@click.option("--port", default=9000, help="Web dashboard port (default: 9000)")
+@click.option("--port", default=8147, help="Web dashboard port (default: 8147)")
 def main(targets: tuple[str, ...], json_output: bool, html_output: bool,
          modules: str | None, timeout: int, web: bool, port: int):
     """Coeus CI - Competitive intelligence from public data.

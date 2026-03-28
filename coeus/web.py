@@ -88,6 +88,6 @@ def create_app():
     return app
 
 
-def run_server(host="127.0.0.1", port=9000):
+def run_server(host="127.0.0.1", port=8147):
     app = create_app()
     web.run_app(app, host=host, port=port, print=lambda msg: None)
