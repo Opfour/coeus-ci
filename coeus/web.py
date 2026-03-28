@@ -88,6 +88,9 @@ def create_app():
     return app
 
 
-def run_server(host="127.0.0.1", port=8147):
+def run_server(host=None, port=None):
+    from coeus import DEFAULT_HOST, DEFAULT_WEB_PORT
+    host = host or DEFAULT_HOST
+    port = port or DEFAULT_WEB_PORT
     app = create_app()
     web.run_app(app, host=host, port=port, print=lambda msg: None)

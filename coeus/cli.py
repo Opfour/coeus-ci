@@ -3,6 +3,7 @@
 import asyncio
 import click
 from rich.console import Console
+from coeus import DEFAULT_WEB_PORT, DEFAULT_TIMEOUT
 from coeus.core import Orchestrator
 from coeus.report import TerminalReport
 
@@ -16,10 +17,11 @@ console = Console()
               help="Save HTML report to ./reports/")
 @click.option("--modules", "-m", default=None,
               help="Comma-separated module list (e.g., whois,dns,edgar)")
-@click.option("--timeout", "-t", default=30,
-              help="Per-module timeout in seconds")
+@click.option("--timeout", "-t", default=DEFAULT_TIMEOUT,
+              help=f"Per-module timeout in seconds (default: {DEFAULT_TIMEOUT})")
 @click.option("--web", is_flag=True, help="Launch web dashboard")
-@click.option("--port", default=8147, help="Web dashboard port (default: 8147)")
+@click.option("--port", default=DEFAULT_WEB_PORT,
+              help=f"Web dashboard port (default: {DEFAULT_WEB_PORT})")
 def main(targets: tuple[str, ...], json_output: bool, html_output: bool,
          modules: str | None, timeout: int, web: bool, port: int):
     """Coeus CI - Competitive intelligence from public data.
