@@ -27,3 +27,7 @@ Thumbs.db
 
 # Notes
 gods.txt
+
+# OpenClaw credentials
+.openclaw/
+openclaw.json
